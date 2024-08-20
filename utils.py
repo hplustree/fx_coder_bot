@@ -6,12 +6,15 @@ from dotenv import load_dotenv
 import pickle
 from openai import OpenAI
 import tempfile
+from fastapi import FastAPI
 
 load_dotenv()
 open_ai_key=os.environ["OPENAI_API_KEY"]
 embedding_model = os.environ["EMBEDDING_MODEL"]
 client=OpenAI(api_key=open_ai_key)
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+
+app = FastAPI()
 
 def get_embedding(text, model=embedding_model):
     return client.embeddings.create(input=text, model=model).data[0].embedding
@@ -70,3 +73,8 @@ def retrieve_relevant_code(prompt, temp_file_name, top_k=10):
     relevant_files = list(set([texts[i][0] for i in indices[0]]))
     print("Relevant files:", relevant_files)
     return relevant_texts, relevant_files, file_chunks
+
+@app.post("/pull_request/")
+async def pull_request(repo_dir: str):
+    temp_file_name = prepare_embeddings(repo_dir)
+    return {"temp_file": temp_file_name}

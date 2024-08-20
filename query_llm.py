@@ -2,6 +2,7 @@ import openai
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from fastapi import FastAPI
 
 load_dotenv()
 
@@ -45,3 +46,9 @@ def generate_code_changes(prompt, code):
         max_tokens=int(Max_tokens),
     )
     return response.choices[0].message.content
+
+app = FastAPI()
+
+@app.post("/pull-request")
+async def create_pull_request():
+    return {"message": "Pull request created!"}
