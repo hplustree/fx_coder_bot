@@ -6,6 +6,10 @@ from git import Repo
 import shutil
 from query_llm import generate_code_changes
 from utils import *
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
 # Function to get the default branch of the repository
 def get_default_branch(repo_url, token):
     repo_parts = repo_url.rstrip('/').split('/')
@@ -46,6 +50,23 @@ def create_pull_request(repo_url, token, source_branch, destination_branch):
         return response.json()
     else:
         return response.json()
+
+@app.route('/resync', methods=['POST'])
+def resync():
+    data = request.get_json()
+    github_url = data.get('github_url')
+    access_token = data.get('access_token')
+
+    if not github_url or not access_token:
+        return jsonify({'message': 'GitHub URL and access token are required.'}), 400
+
+    try:
+        # Here you would call the existing resync functionality from main.py
+        # For example: resync_function(github_url, access_token)
+        
+        return jsonify({'message': 'Resync successful.'}), 200
+    except Exception as e:
+        return jsonify({'message': f'Error occurred: {str(e)}'}), 500
 
 # Streamlit UI
 st.title("GitHub Pull Request Creator")
