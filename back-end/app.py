@@ -32,9 +32,28 @@ async def validate_credentials(credentials: Credentials,db: Session = Depends(ge
     return status
     
 @app.post("/create_pull_request/")
-async def create_pull_request(request: PullRequest):
-    message = handle_repository_update(request) # Todo:: not sure how to handle errors or when to raise http exceptions
-    return message
+async def create_pull_request(request: PullRequest,db: Session = Depends(get_db),token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        db_user=db.query(User).filter(User.username==username).first()
+        if not db_user:
+            raise credentials_exception
+        updated_pr = request.copy(update={"token": db_user.github_token})
+        message = handle_repository_update(updated_pr) # Todo:: not sure how to handle errors or when to raise http exceptions
+        return message
+    except JWTError:
+        raise credentials_exception
+    return None
+
+
 
 @app.delete("/delete_temp_file/")
 async def delete_temp_file_endpoint(request: RepositoryURL):
