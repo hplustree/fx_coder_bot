@@ -45,7 +45,7 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=10
 # JWT configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # Function to create JWT tokens
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -165,6 +165,7 @@ def create_pull_request_2(repo_owner,repo_name, token, source_branch, destinatio
         'body': pr_body,
     }
     response = requests.post(api_url, json=payload, headers=headers)
+    print(response)
     if response.status_code == 201:
         return response.json()
     else:
@@ -406,7 +407,7 @@ def fetch_user_repos(headers, username):
     # Fetch personal repos
     page = 1
     while True:
-        personal_repos_url = f"https://api.github.com/users/{username}/repos?page={page}&per_page=100"
+        personal_repos_url = f"https://api.github.com/users/{username}/repos?page={page}&per_page=100&type=all"
         personal_repos_response = requests.get(personal_repos_url, headers=headers)
         if personal_repos_response.status_code == 200:
             personal_repos = personal_repos_response.json()

@@ -31,7 +31,8 @@ def generate_code_changes(prompt, code):
                 "Preserve the structure, formatting, and logic of the code as much as possible."
                 "Ensure that the changes are precise and strictly adhere to the instructions provided in the prompt."
                 "Do not modify any text or code that is not directly mentioned in the prompt."
-                "Strictly Do not add any comments or code blocks that start with '''python''' or any other programming language.")
+                "Strictly Do not add any comments or code blocks that start with '''python''' or any other programming language."
+                "If no changes are found in the code based on the prompt then strictly dont add anything in that code")
         },
         {
             "role": "user",
