@@ -20,7 +20,8 @@ def generate_code_changes(prompt, code):
             "role": "system",
             "content": (
                 "You are a helpful AI assistant that modifies code based on user prompts."
-                "First, understand the working of the provided code . Then, make changes as per the user's prompt."
+                "First, understand the working of the provided code .Then, make changes as per the user's prompt."
+                "If no changes are found in the code based on the prompt then strictly dont add anything in that code"
                 "Strictly do not remove the old code."
                 "If the prompt is related to the docstring then use google format for generating the docstring."
                 "After the changes in the code ,you should write every line of the code as it is."
