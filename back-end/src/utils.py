@@ -22,7 +22,7 @@ from fastapi import HTTPException
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 
-from src.models import User
+from src.models import User,RepositoryType,RepositoryLogs
 
 # from src.database import SessionLocal, engine
 # from sqlalchemy.orm import Session
@@ -165,7 +165,6 @@ def create_pull_request_2(repo_owner,repo_name, token, source_branch, destinatio
         'body': pr_body,
     }
     response = requests.post(api_url, json=payload, headers=headers)
-    print(response)
     if response.status_code == 201:
         return response.json()
     else:
@@ -218,32 +217,56 @@ def push_changes(repo, remote_name, branch_name, token):
         logging.error(f"Error pushing to remote: {e}")
         raise
 
-def search_file_in_temp(repo_name):
-    # Get the path to the temporary directory
-    temp_dir = tempfile.gettempdir()
-    file_name_part = f"_{repo_name}"
+def search_file_or_delete(repo_name,repo_type,user,database,deleteIt):
+    repo_log=database.query(RepositoryLogs).filter(
+        RepositoryLogs.repository_name==repo_name,
+        RepositoryLogs.repository_type==repo_type,
+        RepositoryLogs.user_id==user.id
+    ).first()
 
-    # Compile a regex pattern to search for the file name part
-    pattern = re.compile(re.escape(file_name_part), re.IGNORECASE)
+    if not repo_log:
+        return None
+    else:
+        if deleteIt:
+            os.remove(repo_log.pickle_file)
+            database.delete(repo_log)
+            database.commit()
+            return True
+        else:
+            return repo_log.pickle_file
 
-    # Walk through the temporary directory to search for the file
-    for root, dirs, files in os.walk(temp_dir):
-        for file_name in files:
-            if pattern.search(file_name):
-                file_path = os.path.join(root, file_name)
-                return file_path
+# def search_file_in_temp(repo_name):
+#     # Get the path to the temporary directory
+#     temp_dir = tempfile.gettempdir()
+#     file_name_part = f"_{repo_name}"
 
-    # If the file is not found
-    return None
+#     # Compile a regex pattern to search for the file name part
+#     pattern = re.compile(re.escape(file_name_part), re.IGNORECASE)
 
-def delete_temp_file(repo_url): 
+#     # Walk through the temporary directory to search for the file
+#     for root, dirs, files in os.walk(temp_dir):
+#         for file_name in files:
+#             if pattern.search(file_name):
+#                 file_path = os.path.join(root, file_name)
+#                 return file_path
+
+#     # If the file is not found
+#     return None
+
+def delete_temp_file(repo_url,db,db_user):
     
     repo_owner,repo_name  = parse_repo_url(repo_url)
+    repo_type=RepositoryType.PERSONAL_REPO if repo_owner==db_user.username else RepositoryType.ORGANISATION_REPO
             
-    found_file_path = search_file_in_temp(repo_name)
+    found_file_path = search_file_or_delete(
+                    repo_name=repo_name,
+                    repo_type=repo_type,
+                    user=db_user,
+                    database=db,
+                    deleteIt=True
+                    )
     if found_file_path:
-        os.remove(found_file_path)
-        return f"deleted found file, path - {found_file_path}"
+        return f"Deleted found file, of {repo_name}"
     else:
         return "no temp pkl file found to delete"
 
@@ -289,7 +312,7 @@ def chunk_and_embed_code(code_files):
     return texts, embeddings, file_chunks
 
 
-def prepare_embeddings(repo_dir,repo_name):
+def prepare_embeddings(repo_dir,repo_name,user,database,repo_type,repo_url):
     code_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(repo_dir)
                   for f in filenames if f.endswith(('.py', '.js', '.html', '.css', '.tsx', '.jsx', '.scss', '.ts'))
                   and '.git' not in dp]
@@ -308,6 +331,20 @@ def prepare_embeddings(repo_dir,repo_name):
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{repo_name}.pkl")
         with open(temp_file.name, 'wb') as f:
             pickle.dump((texts, index, file_chunks), f)
+
+        #Saving in database
+        repo_log=RepositoryLogs(
+            repository_name=repo_name,
+            repository_type=repo_type,
+            repository_url=repo_url,
+            user_id=user.id,
+            pickle_file=temp_file.name
+
+        )
+
+        database.add(repo_log)
+        database.commit()
+
         return temp_file.name
     except:
         return None
@@ -329,7 +366,7 @@ def retrieve_relevant_code(prompt, temp_file_name, top_k=10):
     return relevant_texts, relevant_files, file_chunks
 
 
-def handle_repository_update(request:PullRequest):
+def handle_repository_update(request:PullRequest,db):
     if not request.repo_url or not request.token or not request.source_branch or not request.prompt:
         raise HTTPException(status_code=400, detail="required data not recieved")
     else:
@@ -338,13 +375,30 @@ def handle_repository_update(request:PullRequest):
             raise HTTPException(status_code=500 ,detail="failed to retrieve default branch")
         
         else:
+            #database user
+            db_user=db.query(User).filter(User.username==request.username).first()
+
+  
             destination_branch = request.destination_branch or default_branch
             repo_owner,repo_name  = parse_repo_url(request.repo_url) 
             found_file_path:str|None = None
+            repo_type = RepositoryType.PERSONAL_REPO if repo_owner==request.username else RepositoryType.ORGANISATION_REPO
             if not request.resync:
-                found_file_path = search_file_in_temp(repo_name)
+                found_file_path = search_file_or_delete(
+                    repo_name=repo_name,
+                    repo_type=repo_type,
+                    user=db_user,
+                    database=db,
+                    deleteIt=False
+                    )
             else:
-                delete_temp_file(request.repo_url)
+                found_file_path = search_file_or_delete(
+                    repo_name=repo_name,
+                    repo_type=repo_type,
+                    user=db_user,
+                    database=db,
+                    deleteIt=True
+                    )
 
             repo_dir = tempfile.mkdtemp(suffix=f"_{repo_name}")  # Manually create the temp directory
             try:
@@ -353,7 +407,14 @@ def handle_repository_update(request:PullRequest):
                 new_branch = request.source_branch
                 repo.git.checkout('-b', new_branch)
                 if(not found_file_path):
-                    temp_file_name = prepare_embeddings(repo_dir,repo_name)
+                    temp_file_name = prepare_embeddings(
+                        repo_dir=repo_dir,
+                        repo_name=repo_name,
+                        user=db_user,
+                        database=db,
+                        repo_type=repo_type,
+                        repo_url=request.repo_url
+                        )
                 else:
                     temp_file_name = found_file_path
                     
@@ -368,7 +429,8 @@ def handle_repository_update(request:PullRequest):
                     
                     if request.action == "MODIFY":
                         modify_existing_files(relevant_files, request.prompt)      
-                    elif request.action == "CREATE":  # Create a new file
+                    elif request.action == "CREATE": 
+                         # Create a new file
                         create_and_integrate_new_file(relevant_files, request.prompt, repo_dir)
                 else:
                     raise HTTPException(status_code=500, detail="something went wrong with temp file generation or fetching")
@@ -404,10 +466,10 @@ def fetch_user_repos(headers, username):
         "org_repos":[]
     }
     
-    # Fetch personal repos
+    # Fetch personal repos 
     page = 1
     while True:
-        personal_repos_url = f"https://api.github.com/users/{username}/repos?page={page}&per_page=100&type=all"
+        personal_repos_url = f"https://api.github.com/user/repos?page={page}&per_page=100&type=owner"
         personal_repos_response = requests.get(personal_repos_url, headers=headers)
         if personal_repos_response.status_code == 200:
             personal_repos = personal_repos_response.json()

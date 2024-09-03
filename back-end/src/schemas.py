@@ -16,3 +16,4 @@ class PullRequest(BaseModel):
     resync : bool
     action : str  #action can be CREATE or MODIFY to create new file or modify existing file respectively
     token:Optional[str] = None
+    username:Optional[str]=None
