@@ -337,16 +337,15 @@ def validate_user(headers):
     user_response = requests.get("https://api.github.com/user", headers=headers)
     if user_response.status_code != 200:
         return None
-
     return user_response.json()
 
 def fetch_user_repos(headers, username):
     repos_urls = []
     
-    # Fetch personal repos
+    # Fetch personal repos 
     page = 1
     while True:
-        personal_repos_url = f"https://api.github.com/users/{username}/repos?page={page}&per_page=100"
+        personal_repos_url = f"https://api.github.com/user/repos?page={page}&per_page=100&type=owner"
         personal_repos_response = requests.get(personal_repos_url, headers=headers)
         if personal_repos_response.status_code == 200:
             personal_repos = personal_repos_response.json()
