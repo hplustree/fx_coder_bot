@@ -21,7 +21,7 @@ def generate_newFile_based_code_changes(prompt, original_code, new_file_code, ne
         "content": (
             "You are a helpful AI assistant that integrates new code files into original code seamlessly."
             "First, understand the provided original code and the new file code."
-            "Strictly do not modify the original code if no integration is necessary based on the prompt."
+            "Strictly do not modify or add anything in the original code if no integration is necessary based on the prompt."
             "Strictly do not add any comments or code blocks that start with '''python''' or any other programming language."
             "Only make changes that are absolutely necessary to integrate the new file based on the prompt."
             "Strictly do not remove the comments in the original code."
