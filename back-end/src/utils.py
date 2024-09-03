@@ -192,9 +192,9 @@ def delete_temp_file(repo_url):
     found_file_path = search_file_in_temp(repo_name)
     if found_file_path:
         os.remove(found_file_path)
-        return f"deleted found file, path - {found_file_path}"
+        return f"deleted found file path - {found_file_path}"
     else:
-        return "no temp pkl file found to delete"
+        return "No pkl file found to delete"
 
 # Function to replace the folder name in the paths
 def replace_folder_name_in_paths(file_paths, pattern, repo_dir):
@@ -308,13 +308,6 @@ def handle_repository_update(request:PullRequest):
                     
                 if temp_file_name:
                     relevant_texts, relevant_files, file_chunks = retrieve_relevant_code(request.prompt, temp_file_name)
-                    # if not request.resync:
-                    #     # Compile the regex pattern to match folder names of the form temp.*_my_repo
-                    #     pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
-                    #     # Example usage
-                    #     modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
-                    #     relevant_files = modified_file_paths
-                    
                     if request.action == "MODIFY":
                         modify_existing_files(relevant_files, request.prompt)      
                     elif request.action == "CREATE":  # Create a new file
