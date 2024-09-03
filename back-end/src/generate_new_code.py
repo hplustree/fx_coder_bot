@@ -39,8 +39,6 @@ def create_new_file(prompt, repo_dir):
     with open("token_tracker.txt", "a") as tt:
         tt.write("\n Input token: " + str(input_token) + " output token: " + str(output_token))
     new_file_content = response.choices[0].message.content
-    # Remove the main function if it exists
-    # new_file_content = re.sub(r'\nif __name__ == "__main__":\n(    .+\n)+', '', new_file_content)
     file_name, file_extension = generate_FileName_and_extension(new_file_content)
     if file_extension:
         file_path = os.path.join(repo_dir, f"{file_name}.{file_extension}")

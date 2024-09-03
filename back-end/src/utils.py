@@ -308,12 +308,12 @@ def handle_repository_update(request:PullRequest):
                     
                 if temp_file_name:
                     relevant_texts, relevant_files, file_chunks = retrieve_relevant_code(request.prompt, temp_file_name)
-                    if not request.resync:
-                        # Compile the regex pattern to match folder names of the form temp.*_my_repo
-                        pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
-                        # Example usage
-                        modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
-                        relevant_files = modified_file_paths
+                    # if not request.resync:
+                    #     # Compile the regex pattern to match folder names of the form temp.*_my_repo
+                    #     pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
+                    #     # Example usage
+                    #     modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
+                    #     relevant_files = modified_file_paths
                     
                     if request.action == "MODIFY":
                         modify_existing_files(relevant_files, request.prompt)      
