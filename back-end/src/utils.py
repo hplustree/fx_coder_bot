@@ -45,7 +45,7 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=10
 # JWT configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_HOURS = 8
 
 # Function to create JWT tokens
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -87,7 +87,7 @@ def handle_validation(credentials: Credentials,db):
     db.commit()
 
     # Generate JWT token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     access_token = create_access_token(
         data={"sub": db_user.username}, expires_delta=access_token_expires
     )
