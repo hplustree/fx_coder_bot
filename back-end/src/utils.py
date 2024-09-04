@@ -23,6 +23,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 
 from src.models import User,RepositoryType,RepositoryLogs
+from src.pickle_file_upload import upload_file_to_s3,retrieve_picklefile_from_s3,delete_picklefile_from_s3
 
 # from src.database import SessionLocal, engine
 # from sqlalchemy.orm import Session
@@ -218,6 +219,7 @@ def push_changes(repo, remote_name, branch_name, token):
         raise
 
 def search_file_or_delete(repo_name,repo_type,user,database,deleteIt):
+    
     repo_log=database.query(RepositoryLogs).filter(
         RepositoryLogs.repository_name==repo_name,
         RepositoryLogs.repository_type==repo_type,
@@ -228,10 +230,14 @@ def search_file_or_delete(repo_name,repo_type,user,database,deleteIt):
         return None
     else:
         if deleteIt:
-            os.remove(repo_log.pickle_file)
-            database.delete(repo_log)
-            database.commit()
-            return True
+            # os.remove(repo_log.pickle_file)   
+            is_delete_from_s3=delete_picklefile_from_s3(repo_log.pickle_file)
+            if(is_delete_from_s3):
+                database.delete(repo_log)
+                database.commit()
+                return True
+            else:
+                return None
         else:
             return repo_log.pickle_file
 
@@ -266,9 +272,9 @@ def delete_temp_file(repo_url,db,db_user):
                     deleteIt=True
                     )
     if found_file_path:
-        return f"Deleted found file, of {repo_name}"
+        return f"The file associated with {repo_name} has been successfully deleted."
     else:
-        return "no temp pkl file found to delete"
+        return "No temporary pickle file found to delete."
 
 # Function to replace the folder name in the paths
 def replace_folder_name_in_paths(file_paths, pattern, repo_dir):
@@ -318,19 +324,32 @@ def prepare_embeddings(repo_dir,repo_name,user,database,repo_type,repo_url):
                   and '.git' not in dp]
     texts, embeddings, file_chunks = chunk_and_embed_code(code_files)
 
+
     # Convert embeddings to numpy array
-    embeddings_np = np.array(embeddings).astype('float32') 
+    embeddings_np = np.array(embeddings).astype('float32')
 
     # Create a FAISS index
     try:
         dimension = embeddings_np.shape[1]
         index = faiss.IndexFlatL2(dimension)  # Use L2 distance (Euclidean distance) index
-        index.add(embeddings_np)  # Add embeddings to the index
+        index.add(embeddings_np)
+        # Add embeddings to the index
 
-        # Create a temporary file to store the FAISS index and texts
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{repo_name}.pkl")
-        with open(temp_file.name, 'wb') as f:
-            pickle.dump((texts, index, file_chunks), f)
+        # # Create a temporary file to store the FAISS index and texts
+        # temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{repo_name}.pkl")
+        # with open(temp_file.name, 'wb') as f:
+        #     pickle.dump((texts, index, file_chunks), f)
+        # print("pickle_object: ",pickle_object)
+        pickle_object=pickle.dumps((texts, index, file_chunks))
+
+        temp_file_name=upload_file_to_s3(
+            pickle_object=pickle_object,
+            repo_name=repo_name,
+            username=user.username,
+            repo_type=repo_type.value
+        )
+        if not temp_file_name:
+            return None
 
         #Saving in database
         repo_log=RepositoryLogs(
@@ -338,21 +357,26 @@ def prepare_embeddings(repo_dir,repo_name,user,database,repo_type,repo_url):
             repository_type=repo_type,
             repository_url=repo_url,
             user_id=user.id,
-            pickle_file=temp_file.name
+            pickle_file=temp_file_name
 
         )
 
         database.add(repo_log)
         database.commit()
 
-        return temp_file.name
+        return temp_file_name
     except:
         return None
 
 
 def retrieve_relevant_code(prompt, temp_file_name, top_k=10):
-    with open(temp_file_name, 'rb') as f:
-        texts, index, file_chunks = pickle.load(f)
+    pickle_data=retrieve_picklefile_from_s3(temp_file_name)
+    if not pickle_data:
+        return None
+    texts, index, file_chunks = pickle.loads(pickle_data)
+
+    # with open(temp_file_name, 'rb') as f:
+    #     texts, index, file_chunks = pickle.load(f)
 
     # Compute the embedding for the prompt
     prompt_embedding = np.array(get_embedding(prompt, model=embedding_model)).astype('float32')
@@ -363,6 +387,7 @@ def retrieve_relevant_code(prompt, temp_file_name, top_k=10):
     # Retrieve relevant texts based on the indices
     relevant_texts = [texts[i][1] for i in indices[0]]
     relevant_files = list(set([texts[i][0] for i in indices[0]]))
+
     return relevant_texts, relevant_files, file_chunks
 
 
@@ -417,15 +442,15 @@ def handle_repository_update(request:PullRequest,db):
                         )
                 else:
                     temp_file_name = found_file_path
-                    
                 if temp_file_name:
                     relevant_texts, relevant_files, file_chunks = retrieve_relevant_code(request.prompt, temp_file_name)
-                    if not request.resync:
-                        # Compile the regex pattern to match folder names of the form temp.*_my_repo
-                        pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
-                        # Example usage
-                        modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
-                        relevant_files = modified_file_paths
+
+                    # if not request.resync:
+                    #     # Compile the regex pattern to match folder names of the form temp.*_my_repo
+                    #     pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
+                    #     # Example usage
+                    #     modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
+                    #     relevant_files = modified_file_paths
                     
                     if request.action == "MODIFY":
                         modify_existing_files(relevant_files, request.prompt)      
@@ -442,6 +467,7 @@ def handle_repository_update(request:PullRequest,db):
                 push_changes(repo, 'origin', new_branch, request.token)  # Push the changes using the authenticated URL
                 
                 result = create_pull_request_2(repo_owner,repo_name, request.token, new_branch, destination_branch)
+                
                 if 'number' in result:
                     return {"message": "Pull request created successfully", "pull_request": result}
                 else:
