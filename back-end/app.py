@@ -131,8 +131,8 @@ async def validate_and_fetch_repos(db: Session = Depends(get_db),token: str = De
         }
         for logs in db_repo_logs:
             temp_logs={
-                        "repository_name":logs.repository_name,
-                        "repository_url":logs.repository_url,
+                        "name":logs.repository_name,
+                        "html_url":logs.repository_url,
                         "create_at":logs.created_at
                     }
             if logs.repository_type==RepositoryType.PERSONAL_REPO:
