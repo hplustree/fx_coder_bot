@@ -109,3 +109,40 @@ async def validate_and_fetch_repos(db: Session = Depends(get_db),token: str = De
         raise credentials_exception
     return None
 
+@app.get("/fetch_repo_logs/")
+async def validate_and_fetch_repos(db: Session = Depends(get_db),token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        db_user=db.query(User).filter(User.username==username).first()
+        if not db_user:
+            raise credentials_exception
+        db_repo_logs=db.query(RepositoryLogs).filter(RepositoryLogs.user_id==db_user.id).all()
+        repo_logs={
+        "personal_repos":[],
+        "org_repos":[]
+        }
+        for logs in db_repo_logs:
+            temp_logs={
+                        "repository_name":logs.repository_name,
+                        "repository_url":logs.repository_url,
+                        "create_at":logs.created_at
+                    }
+            if logs.repository_type==RepositoryType.PERSONAL_REPO:
+                repo_logs["personal_repos"].append(temp_logs)
+            else:
+                repo_logs["org_repos"].append(temp_logs)
+        
+        
+        # repos = fetch_user_repos(headers, db_user.username)
+        return {"message":"repository logs are successfully fetched","data":repo_logs}
+    except JWTError:
+        raise credentials_exception
+    return None
