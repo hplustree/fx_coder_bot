@@ -25,17 +25,6 @@ from datetime import datetime, timedelta
 from src.models import User,RepositoryType,RepositoryLogs
 from src.pickle_file_upload import upload_file_to_s3,retrieve_picklefile_from_s3,delete_picklefile_from_s3
 
-# from src.database import SessionLocal, engine
-# from sqlalchemy.orm import Session
-
-
-# # Dependency
-# def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
 
 load_dotenv()
 open_ai_key=os.environ["OPENAI_API_KEY"]
@@ -219,7 +208,6 @@ def push_changes(repo, remote_name, branch_name, token):
         raise
 
 def search_file_or_delete(repo_name,repo_type,user,database,deleteIt):
-    
     repo_log=database.query(RepositoryLogs).filter(
         RepositoryLogs.repository_name==repo_name,
         RepositoryLogs.repository_type==repo_type,
@@ -230,7 +218,6 @@ def search_file_or_delete(repo_name,repo_type,user,database,deleteIt):
         return None
     else:
         if deleteIt:
-            # os.remove(repo_log.pickle_file)   
             is_delete_from_s3=delete_picklefile_from_s3(repo_log.pickle_file)
             if(is_delete_from_s3):
                 database.delete(repo_log)
@@ -240,24 +227,6 @@ def search_file_or_delete(repo_name,repo_type,user,database,deleteIt):
                 return None
         else:
             return repo_log.pickle_file
-
-# def search_file_in_temp(repo_name):
-#     # Get the path to the temporary directory
-#     temp_dir = tempfile.gettempdir()
-#     file_name_part = f"_{repo_name}"
-
-#     # Compile a regex pattern to search for the file name part
-#     pattern = re.compile(re.escape(file_name_part), re.IGNORECASE)
-
-#     # Walk through the temporary directory to search for the file
-#     for root, dirs, files in os.walk(temp_dir):
-#         for file_name in files:
-#             if pattern.search(file_name):
-#                 file_path = os.path.join(root, file_name)
-#                 return file_path
-
-#     # If the file is not found
-#     return None
 
 def delete_temp_file(repo_url,db,db_user):
     
@@ -335,11 +304,6 @@ def prepare_embeddings(repo_dir,repo_name,user,database,repo_type,repo_url):
         index.add(embeddings_np)
         # Add embeddings to the index
 
-        # # Create a temporary file to store the FAISS index and texts
-        # temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{repo_name}.pkl")
-        # with open(temp_file.name, 'wb') as f:
-        #     pickle.dump((texts, index, file_chunks), f)
-        # print("pickle_object: ",pickle_object)
         pickle_object=pickle.dumps((texts, index, file_chunks))
 
         temp_file_name=upload_file_to_s3(
@@ -370,13 +334,11 @@ def prepare_embeddings(repo_dir,repo_name,user,database,repo_type,repo_url):
 
 
 def retrieve_relevant_code(prompt, temp_file_name, top_k=10):
+
     pickle_data=retrieve_picklefile_from_s3(temp_file_name)
     if not pickle_data:
         return None
     texts, index, file_chunks = pickle.loads(pickle_data)
-
-    # with open(temp_file_name, 'rb') as f:
-    #     texts, index, file_chunks = pickle.load(f)
 
     # Compute the embedding for the prompt
     prompt_embedding = np.array(get_embedding(prompt, model=embedding_model)).astype('float32')
@@ -387,7 +349,6 @@ def retrieve_relevant_code(prompt, temp_file_name, top_k=10):
     # Retrieve relevant texts based on the indices
     relevant_texts = [texts[i][1] for i in indices[0]]
     relevant_files = list(set([texts[i][0] for i in indices[0]]))
-
     return relevant_texts, relevant_files, file_chunks
 
 
@@ -403,7 +364,6 @@ def handle_repository_update(request:PullRequest,db):
             #database user
             db_user=db.query(User).filter(User.username==request.username).first()
 
-  
             destination_branch = request.destination_branch or default_branch
             repo_owner,repo_name  = parse_repo_url(request.repo_url) 
             found_file_path:str|None = None
@@ -417,7 +377,7 @@ def handle_repository_update(request:PullRequest,db):
                     deleteIt=False
                     )
             else:
-                found_file_path = search_file_or_delete(
+                search_file_or_delete(
                     repo_name=repo_name,
                     repo_type=repo_type,
                     user=db_user,
@@ -444,13 +404,6 @@ def handle_repository_update(request:PullRequest,db):
                     temp_file_name = found_file_path
                 if temp_file_name:
                     relevant_texts, relevant_files, file_chunks = retrieve_relevant_code(request.prompt, temp_file_name)
-
-                    # if not request.resync:
-                    #     # Compile the regex pattern to match folder names of the form temp.*_my_repo
-                    #     pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
-                    #     # Example usage
-                    #     modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
-                    #     relevant_files = modified_file_paths
                     
                     if request.action == "MODIFY":
                         modify_existing_files(relevant_files, request.prompt)      

@@ -28,7 +28,7 @@ def upload_file_to_s3(pickle_object,username,repo_type,repo_name):
         return object_key
 
     except Exception as e:
-        print(e)
+        print("upload: ",e)
         return None
     
 def retrieve_picklefile_from_s3(object_key):
@@ -39,7 +39,7 @@ def retrieve_picklefile_from_s3(object_key):
         return pickle_data
 
     except Exception as e:
-        print(e)
+        print("retrieve: ",e)
         return None
     
 def delete_picklefile_from_s3(object_key):
@@ -49,5 +49,5 @@ def delete_picklefile_from_s3(object_key):
         return True
 
     except Exception as e:
-        print(e)
+        print("delete_picke: ",e)
         return None
