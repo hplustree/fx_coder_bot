@@ -20,7 +20,10 @@ async def validate_credentials(credentials: Credentials):
 @app.post("/create_pull_request/")
 async def create_pull_request(request: PullRequest):
     message = handle_repository_update(request)
-    return message
+    if message is None:
+        raise HTTPException(status_code=401, detail="No relevant files found to modify")
+    else:
+        return message
 
 @app.delete("/delete_temp_file/")
 async def delete_temp_file_endpoint(request: RepositoryURL):

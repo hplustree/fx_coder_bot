@@ -115,10 +115,13 @@ def create_pull_request_2(repo_owner,repo_name, token, source_branch, destinatio
         'body': pr_body,
     }
     response = requests.post(api_url, json=payload, headers=headers)
-    if response.status_code == 201:
-        return response.json()
-    else:
-        return response.json()
+    if response is None :
+        return None
+    else: 
+        if response.status_code == 201:
+            return response.json()
+        else:
+            return response.json()
 
 # Function to handle permission errors while deleting files
 def on_rm_error(func, path, exc_info):
@@ -308,24 +311,56 @@ def handle_repository_update(request:PullRequest):
                     
                 if temp_file_name:
                     relevant_texts, relevant_files, file_chunks = retrieve_relevant_code(request.prompt, temp_file_name)
+                    if not request.resync:
+                    # Compile the regex pattern to match folder names of the form temp.*_my_repo
+                        pattern = re.compile(rf'tmp.*_{re.escape(repo_name)}')
+                        # Example usage
+                        modified_file_paths = replace_folder_name_in_paths(relevant_files, pattern, repo_dir)
+                        relevant_files = modified_file_paths
                     if request.action == "MODIFY":
-                        modify_existing_files(relevant_files, request.prompt)      
+                        modify_existing_files(relevant_files, request.prompt)
+                        
                     elif request.action == "CREATE":  # Create a new file
                         create_and_integrate_new_file(relevant_files, request.prompt, repo_dir)
-                else:
-                    raise HTTPException(status_code=500, detail="something went wrong with temp file generation or fetching")
+
                     
-                
-                repo.git.add(all=True)
-                repo.index.commit("Automated changes based on user prompt")
-                
-                push_changes(repo, 'origin', new_branch, request.token)  # Push the changes using the authenticated URL
-                
-                result = create_pull_request_2(repo_owner,repo_name, request.token, new_branch, destination_branch)
-                if 'number' in result:
-                    return {"message": "Pull request created successfully", "pull_request": result}
-                else:
-                    raise HTTPException(status_code=500, detail="failed to create pull request")
+                    repo.git.add(all=True)
+                    repo.index.commit("Automated changes based on user prompt")
+                    
+                    push_changes(repo, 'origin', new_branch, request.token)  # Push the changes using the authenticated URL
+                    
+                    result = create_pull_request_2(repo_owner,repo_name, request.token, new_branch, destination_branch)
+                    if result is None: 
+                        return {"message": "No files found in the repo to modfy"}
+                    elif result is not None:
+                        if 'number' in result:
+                            return {"message": "Pull request created successfully", "pull_request": result}
+                        else:
+                            raise HTTPException(status_code=500, detail="failed to create pull request")  
+        
+                elif temp_file_name is None:
+                    if request.action=="MODIFY":
+                        changes=None
+                    
+                    elif request.action == "CREATE":  
+                        changes=create_new_file(request.prompt, repo_dir)
+                        if changes is not None:
+                            repo.git.add(all=True)
+                            repo.index.commit("Automated changes based on user prompt")
+                            
+                            push_changes(repo, 'origin', new_branch, request.token)  # Push the changes using the authenticated URL
+                            
+                            result = create_pull_request_2(repo_owner,repo_name, request.token, new_branch, destination_branch)
+                            if result is None: 
+                                return {"message": "No files found in the repo to modfy"}
+                            elif result is not None:
+                                if 'number' in result:
+                                    return {"message": "Pull request created successfully", "pull_request": result}
+                                else:
+                                    raise HTTPException(status_code=500, detail="failed to create pull request")  
+                        else:
+                            raise HTTPException(status_code=500, detail="something went wrong with temp file generation or fetching")
+
                 
             finally:
                 repo.close()

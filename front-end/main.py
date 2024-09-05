@@ -18,7 +18,6 @@ on = st.toggle("Resync")
 
 if st.button("delete temp file"):
     response = requests.delete(f'{os.environ["BASE_URL"]}/delete_temp_file/', json={'repo_url': repo_url})
-    # handled the response.
     
     if response.status_code == 200:
         response_data = response.json()
@@ -40,10 +39,12 @@ if st.button('Create Pull Request'):
     }
     
     response = requests.post(f'{os.environ["BASE_URL"]}/create_pull_request/',json=pr_json)
-    # handled the response.
+    
     if response.status_code == 200:
         response_data = response.json()
         st.success(f"Pull Request created Successfully! PR number: {response_data['pull_request']['number']}")
         st.write(f"PR url: {response_data['pull_request']['html_url']}")
+    elif response.status_code == 401:
+        st.error("No relevant files found to modify")
     else:
         st.error("Failed to create PR")
