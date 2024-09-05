@@ -52,8 +52,11 @@ async def create_pull_request(request: PullRequest,db: Session = Depends(get_db)
             raise credentials_exception
         updated_pr = request.copy(update={
             "token": db_user.github_token,"username":username})
-        message = handle_repository_update(updated_pr,db) # Todo:: not sure how to handle errors or when to raise http exceptions
-        return message
+        message = handle_repository_update(updated_pr,db)
+        if message is None:
+            raise HTTPException(status_code=400, detail="No relevant files found to modify")
+        else:
+            return message 
     except JWTError:
         raise credentials_exception
     return None
