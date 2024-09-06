@@ -35,7 +35,7 @@ def generate_code_changes(prompt, code):
         },
         {
             "role": "user",
-            "content": f"Here is the current code: {code}\nMake the following changes: {prompt}"
+            "content": f"Here is the current code: {code}\nMake the following changes: Change the title to chatting"
         }
     ]
     response = client.chat.completions.create(
