@@ -6,6 +6,7 @@ from git import Repo
 import shutil
 from query_llm import generate_code_changes
 from utils import *
+
 # Function to get the default branch of the repository
 def get_default_branch(repo_url, token):
     repo_parts = repo_url.rstrip('/').split('/')
