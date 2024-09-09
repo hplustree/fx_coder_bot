@@ -48,7 +48,7 @@ def create_pull_request(repo_url, token, source_branch, destination_branch):
         return response.json()
 
 # Streamlit UI
-st.title("GitHub Pull Request Creator")
+st.title("docs")
 repo_url = st.text_input("GitHub Repository URL", "")
 token = st.text_input("GitHub Personal Access Token", type="password")
 source_branch = st.text_input("Feature branch", "")
