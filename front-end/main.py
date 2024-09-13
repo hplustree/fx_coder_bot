@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Streamlit UI
 st.title("GitHub Pull Request Creator")
 repo_url = st.text_input("GitHub Repository URL", "")
 token = st.text_input("GitHub Personal Access Token", type="password")

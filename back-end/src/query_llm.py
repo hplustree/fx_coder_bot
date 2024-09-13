@@ -12,7 +12,6 @@ Max_tokens=os.environ["MAX_TOKENS"]
 
 client=OpenAI(api_key=open_ai_key)
 
-# Function to generate code changes using OpenAI GPT-4
 def generate_code_changes(prompt, code):
     openai.api_key = open_ai_key
     messages = [

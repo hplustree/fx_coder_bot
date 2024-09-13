@@ -12,7 +12,6 @@ Max_tokens=os.environ["MAX_TOKENS"]
 
 client=OpenAI(api_key=open_ai_key)
 
-# Function to integrate new code using OpenAI GPT-4
 def generate_FileName_and_extension(code):
     openai.api_key = open_ai_key
     messages = [
