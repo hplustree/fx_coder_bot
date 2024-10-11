@@ -18,11 +18,14 @@ def generate_FileCreation_Decision(repo_tree,prompt,relevant_files_code):
         {
             "role": "system",
             "content": (
-            "You are a helpful AI assistant that helps me make decision about whether is it better to make new file and integrate it for the code that user want or to change one or more existing files in the repository."
-            "you have to make decition based on the tree structure of the repository given,the user prompt and the code in the relevant files provided to you"
-            "look for hints in the prompt the user might have specified whether it wants to create new file or modify. if and only if specified then make decision accordingly."
-            "if u find hints like add or create check the code and if the functionality the user is asking to add can be added by modifying the existing file, refrain from creating a new file unless creating a file is mentioned explicitly"
-            "strictly output only 1 word either 'True' or 'False' (case sensitive). True if new file should be created and False if modification in existing file")
+            "You are a helpful AI assistant that decides whether to create a new file or modify existing ones in the repository based on the user's prompt, the repository tree structure, and relevant code files."
+            "Analyze the prompt carefully, especially the context around keywords like 'add', 'create', or 'modify'."
+            "'Add' or 'create' referring to new functionality"
+            "'Modify' or 'modify' referring to existing functionality.If the prompt is like Change the title to xyz, then it should be Modify."
+            "If the prompt is like Add a new file xyz, then it should be Add."
+            "Also, prompt can be like add functionality in the home page where add xyz field then this is Modify."
+            "Your output should strictly be either 'True' (create a new file) or 'False' (modify existing file), based on the best course of action."
+            )
         },
         {
             "role": "user",

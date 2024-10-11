@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, HTTPException
 
 class RepositoryURL(BaseModel):
     repo_url: str
@@ -14,3 +15,4 @@ class PullRequest(BaseModel):
     destination_branch: str
     prompt: str
     resync : bool
+    uploaded_image: UploadFile = File(None)

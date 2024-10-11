@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from src.utils import *
 from src.models import Credentials, PullRequest, RepositoryURL
 from fastapi.middleware.cors import CORSMiddleware
-
+    
 app = FastAPI()
 origins = ["*"]
 app.add_middleware(
@@ -20,8 +20,25 @@ async def validate_credentials(credentials: Credentials):
     return status
     
 @app.post("/create_pull_request/")
-async def create_pull_request(request: PullRequest):
-    message = handle_repository_update(request)
+async def create_pull_request(
+    repo_url: str = Form(...),
+    token: str = Form(...),
+    source_branch: str = Form(...),
+    destination_branch: str = Form(None),
+    prompt: str = Form(...),
+    resync: bool = Form(...),
+    uploaded_image: UploadFile = File(None)
+):
+    image_path = None
+    if uploaded_image:
+        image_path = save_uploaded_image(uploaded_image)
+    
+    message = handle_repository_update(repo_url, token, source_branch, destination_branch, prompt, resync, image_path)
+    
+    # Clean up image after processing
+    if image_path:
+        os.remove(image_path)
+    
     return message
 
 @app.delete("/delete_temp_file/")
